@@ -563,63 +563,54 @@ export const TorrentSearchPanel: React.FC<TorrentSearchPanelProps> = ({ onPrepar
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-900 divide-y divide-slate-800/80">
+          <div className="torrent-result-grid">
             {sortedResults.map((result, index) => (
-              <div
+              <article
                 key={result.guid || result.infoHash || (result.title + '-' + index)}
-                className="result-card p-2.5 sm:p-4 hover:bg-slate-900/80 transition"
+                className="result-card torrent-poster-card group"
               >
-                <div className="flex flex-row items-center gap-2 sm:gap-4">
-                  <div className="relative w-16 sm:w-20 lg:w-24 xl:w-28 aspect-[2/3] rounded-xl overflow-hidden bg-slate-950 border border-slate-700/70 shrink-0 shadow-lg">
-                    <img
-                      src={posterUrl(result.title)}
-                      alt=""
-                      loading="lazy"
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onError={(event) => {
-                        const img = event.currentTarget;
-                        img.style.display = 'none';
-                        const fallback = img.parentElement?.querySelector('[data-poster-fallback="true"]') as HTMLElement | null;
-                        if (fallback) fallback.style.display = 'flex';
-                      }}
-                    />
-                    <div data-poster-fallback="true" className="absolute inset-0 hidden items-center justify-center bg-gradient-to-br from-cyan-500/15 to-slate-950 text-cyan-400">
-                      <Film className="w-7 h-7 sm:w-9 sm:h-9 opacity-70" />
-                    </div>
+                <div className="torrent-poster">
+                  <img
+                    src={posterUrl(result.title)}
+                    alt=""
+                    loading="lazy"
+                    className="torrent-poster-image"
+                    onError={(event) => {
+                      const img = event.currentTarget;
+                      img.style.display = 'none';
+                      const fallback = img.parentElement?.querySelector('[data-poster-fallback="true"]') as HTMLElement | null;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                  <div data-poster-fallback="true" className="torrent-poster-fallback">
+                    <Film className="w-10 h-10 opacity-70" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start gap-2">
-                      <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-cyan-500/10 border border-cyan-500/20 shrink-0">
-                        <Database className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-[13px] sm:text-sm font-semibold text-slate-100 line-clamp-2">
-                          {result.title}
-                        </h3>
-                        <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-0.5 mt-1 text-[10px] sm:text-[11px] text-slate-500">
-                          <span>{result.indexer || 'Unknown indexer'}</span>
-                          <span>{formatPublished(result.publishDate)}</span>
-                          {result.protocol && <span className="uppercase">{result.protocol}</span>}
-                          {result.infoHash && (
-                            <span className="font-mono truncate max-w-[220px]" title={result.infoHash}>
-                              {result.infoHash}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2 sm:mt-3 text-[11px] sm:text-xs text-slate-400">
-                      <span className="font-mono">{formatBytes(result.size)}</span>
-                      <span className="flex items-center gap-1 text-emerald-400">
-                        <Users className="w-3.5 h-3.5" />
-                        {result.seeders} seeders
-                      </span>
-                      <span className="text-slate-500">{result.leechers} leechers</span>
-                    </div>
+                  <div className="torrent-poster-overlay">
+                    <span className="torrent-score-badge">
+                      <Users className="w-3 h-3" />
+                      {result.seeders || 0}
+                    </span>
                   </div>
+                </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                <div className="torrent-card-body">
+                  <h3 className="torrent-card-title" title={result.title}>
+                    {result.title}
+                  </h3>
+                  <div className="torrent-card-stats">
+                    <span className="text-emerald-400"><Users className="w-3.5 h-3.5" />{result.seeders || 0} seeders</span>
+                    <span className="text-amber-400/80">{result.leechers || 0} peers</span>
+                  </div>
+                  <div className="torrent-card-meta">
+                    <span>{formatBytes(result.size)}</span>
+                    <span>{formatPublished(result.publishDate)}</span>
+                  </div>
+                  <div className="torrent-card-source" title={result.infoHash || result.indexer || ''}>
+                    {result.indexer || 'Unknown indexer'}
+                    {result.infoHash ? ' · ' + result.infoHash.slice(0, 10) + '…' : ''}
+                  </div>
+                  <div className="torrent-card-actions">
+                    <div className="flex items-center gap-2 shrink-0">
                     {(() => {
                       const source = result.magnetUrl || result.downloadUrl || result.sourceUrl;
                       const torrentKey = result.infoHash || source || result.title;
@@ -753,12 +744,11 @@ export const TorrentSearchPanel: React.FC<TorrentSearchPanelProps> = ({ onPrepar
                         </div>
                       );
                     })()}
-                  </div>
+                  <                  </div>
                 </div>
-              </div>
+              </article>
             ))}
-          </div>
-        </div>
+          </div>       </div>
       )}
 
       {!isSearching && searched && sortedResults.length === 0 && !error && (
