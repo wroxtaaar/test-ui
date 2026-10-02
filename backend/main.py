@@ -2911,6 +2911,86 @@ async def search_1337x(query: str, limit: int = 50, allow_series_fallback: bool 
     )
     return results
 
+_poster_cache: dict[str, str | None] = {}
+
+def _normalize_poster_title(value: str) -> str:
+    return re.sub(r"\\s+", " ", re.sub(r"[^a-z0-9]+", " ", str(value or "").lower())).strip()
+
+def _parse_poster_title(raw_title: str) -> tuple[str, str]:
+    value = re.sub(r"[._]+", " ", str(raw_title or "")).strip()
+    year_match = re.search(r"\\b((?:19|20)\\d{2})\\b", value)
+    year = year_match.group(1) if year_match else ""
+    if year_match:
+        value = value[:year_match.start()]
+    value = re.sub(r"\\[[^\\]]*\\]|\\([^)]*\\]", " ", value)
+    value = re.sub(
+        r"\\b(?:720p|1080p|2160p|480p|4k|x264|x265|h264|h265|hevc|bluray|brrip|web-?dl|webrip|hdrip|dvdrip|cam|hdcam)\\b",
+        " ",
+        value,
+        flags=re.I,
+    )
+    return re.sub(r"\\s+", " ", value).strip(), year
+
+async def _resolve_movie_poster(raw_title: str) -> str | None:
+    title, year = _parse_poster_title(raw_title)
+    if not title:
+        return None
+    key = f"{_normalize_poster_title(title)}|{year}"
+    if key in _poster_cache:
+        return _poster_cache[key]
+
+    async with httpx.AsyncClient(timeout=6, follow_redirects=True) as client:
+        # Keyless IMDb title suggestion API, matching the same approach used
+        # by the previously tested movie project.
+        try:
+            query = quote(f"{title} {year}".strip())
+            response = await client.get(
+                f"https://v3.sg.media-imdb.com/suggestion/titles/x/{query}.json?includeVideos=0",
+                headers={"Accept": "application/json"},
+            )
+            if response.is_success:
+                data = response.json()
+                wanted = _normalize_poster_title(title)
+                wanted_year = year
+                for item in data.get("d") or []:
+                    if not isinstance(item, dict):
+                        continue
+                    image = item.get("i")
+                    if not isinstance(image, dict) or not image.get("imageUrl"):
+                        continue
+                    candidate = _normalize_poster_title(item.get("l") or "")
+                    candidate_year = str(item.get("y") or "")
+                    if candidate == wanted and (not wanted_year or candidate_year == wanted_year):
+                        url = str(image["imageUrl"])
+                        _poster_cache[key] = url
+                        return url
+        except (httpx.HTTPError, ValueError, TypeError):
+            pass
+
+        # Keyless iTunes fallback.
+        try:
+            response = await client.get(
+                "https://itunes.apple.com/search",
+                params={"term": f"{title} {year}".strip(), "limit": "25"},
+            )
+            if response.is_success:
+                data = response.json()
+                wanted = _normalize_poster_title(title)
+                for item in data.get("results") or []:
+                    if not isinstance(item, dict) or item.get("kind") != "feature-movie":
+                        continue
+                    artwork = item.get("artworkUrl100")
+                    candidate = _normalize_poster_title(item.get("trackName") or item.get("collectionName") or "")
+                    if artwork and candidate == wanted:
+                        url = str(artwork).replace("100x100bb", "600x600bb")
+                        _poster_cache[key] = url
+                        return url
+        except (httpx.HTTPError, ValueError, TypeError):
+            pass
+
+    _poster_cache[key] = None
+    return None
+
 def parse_size(value: str) -> int:
     m = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*(B|KB|MB|GB|TB)", value or "", re.I)
     if not m:
@@ -2938,6 +3018,14 @@ async def health():
 @app.get("/api/search")
 async def api_search(q: str = Query(..., min_length=1), limit: int = Query(50, ge=1, le=50)):
     return await search_1337x(q, limit)
+
+@app.get("/api/poster")
+async def api_poster(title: str = Query(..., min_length=1), year: str = Query("")):
+    raw_title = f"{title} {year}".strip()
+    poster = await _resolve_movie_poster(raw_title)
+    if not poster:
+        return Response(status_code=204)
+    return RedirectResponse(poster, status_code=307)
 
 @app.get("/api/health")
 async def api_health():
