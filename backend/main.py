@@ -2946,10 +2946,10 @@ async def _resolve_movie_poster(raw_title: str) -> str | None:
         return None
 
     # Strip episode/release suffixes that commonly appear on TV/search results.
-    lookup_title = re.sub(r"\\bS\\d{1,2}E\\d{1,4}(?:[-_.]E?\\d{1,4})?\\b", " ", title, flags=re.I)
-    lookup_title = re.sub(r"\\b(?:S\\d{1,2}|Season\\s+\\d+)\\b", " ", lookup_title, flags=re.I)
-    lookup_title = re.sub(r"\\b(?:E\\d{1,4}|Episode\\s+\\d+)\\b", " ", lookup_title, flags=re.I)
-    lookup_title = re.sub(r"\\s+", " ", lookup_title).strip()
+    lookup_title = re.sub(r"\bS\d{1,2}E\d{1,4}(?:[-_.]E?\d{1,4})?\b", " ", title, flags=re.I)
+    lookup_title = re.sub(r"\b(?:S\d{1,2}|Season\s+\d+)\b", " ", lookup_title, flags=re.I)
+    lookup_title = re.sub(r"\b(?:E\d{1,4}|Episode\s+\d+)\b", " ", lookup_title, flags=re.I)
+    lookup_title = re.sub(r"\s+", " ", lookup_title).strip()
     if not lookup_title:
         lookup_title = title
 
@@ -6188,7 +6188,7 @@ async def submit_feedback(body: FeedbackRequest, request: Request):
     label = {"review": "Review", "suggestion": "Suggestion", "bug": "Bug report"}[feedback_type]
     title_prefix = {"review": "Review", "suggestion": "Suggestion", "bug": "Bug report"}[feedback_type]
     title_text = message.replace("\\n", " ").strip()
-    title_text = re.sub(r"\\s+", " ", title_text)[:70] or "New feedback"
+    title_text = re.sub(r"\s+", " ", title_text)[:70] or "New feedback"
 
     if feedback_type == "review" and rating is not None:
         stars = "⭐" * rating
