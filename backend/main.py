@@ -2914,7 +2914,15 @@ async def search_1337x(query: str, limit: int = 50, allow_series_fallback: bool 
 _poster_cache: dict[str, str | None] = {}
 
 def _normalize_poster_title(value: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", str(value or "").lower())).strip()
+    text = str(value or "").lower()
+    # Torrent names often concatenate branded movie names ("SpiderMan")
+    # while metadata sources use the punctuated form ("Spider-Man").
+    text = re.sub(r"\bspiderman\b", "spider man", text)
+    text = re.sub(r"\bspiderwoman\b", "spider woman", text)
+    text = re.sub(r"\bantman\b", "ant man", text)
+    text = re.sub(r"\bironman\b", "iron man", text)
+    text = re.sub(r"\bdeadpool\b", "deadpool", text)
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", text)).strip()
 
 def _parse_poster_title(raw_title: str) -> tuple[str, str]:
     value = re.sub(r"[._]+", " ", str(raw_title or "")).strip()
