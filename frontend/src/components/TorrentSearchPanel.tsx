@@ -744,11 +744,12 @@ export const TorrentSearchPanel: React.FC<TorrentSearchPanelProps> = ({ onPrepar
                         </div>
                       );
                     })()}
-                  <                  </div>
+                  </div>
                 </div>
               </article>
             ))}
-          </div>       </div>
+          </div>
+        </div>
       )}
 
       {!isSearching && searched && sortedResults.length === 0 && !error && (
