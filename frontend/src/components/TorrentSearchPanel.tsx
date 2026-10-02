@@ -74,12 +74,12 @@ export const TorrentSearchPanel: React.FC<TorrentSearchPanelProps> = ({ onPrepar
   const posterUrl = (title: string) => {
     const cleaned = String(title || '')
       .replace(/[._]/g, ' ')
-      .replace(/\\b(?:720p|1080p|2160p|480p|4k|x264|x265|h264|h265|hevc|bluray|brrip|web-?dl|webrip|hdrip|dvdrip|cam|hdcam)\\b/gi, ' ')
-      .replace(/\\s+/g, ' ')
+      .replace(/\b(?:720p|1080p|2160p|480p|4k|x264|x265|h264|h265|hevc|bluray|brrip|web-?dl|webrip|hdrip|dvdrip|cam|hdcam)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
       .trim();
-    const yearMatch = cleaned.match(/\\b(?:19|20)\\d{2}\\b/);
+    const yearMatch = cleaned.match(/\b(?:19|20)\\d{2}\\b/);
     let movieTitle = yearMatch ? cleaned.slice(0, yearMatch.index).trim() : cleaned;
-    movieTitle = movieTitle.replace(/\\[[^\\]]*\\]|\\([^)]*\\)/g, ' ').replace(/\\s+/g, ' ').trim();
+    movieTitle = movieTitle.replace(/\\[[^\\]]*\\]|\\([^)]*\\)/g, ' ').replace(/\s+/g, ' ').trim();
     const params = new URLSearchParams({
       title: movieTitle,
       year: yearMatch?.[0] || '',
