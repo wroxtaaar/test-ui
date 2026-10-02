@@ -605,15 +605,8 @@ export const TorrentSearchPanel: React.FC<TorrentSearchPanelProps> = ({ onPrepar
                     <span className="text-emerald-400"><Users className="w-3.5 h-3.5" />{result.seeders || 0} seeders</span>
                     <span className="text-amber-400/80">{result.leechers || 0} peers</span>
                   </div>
-                  <div className="torrent-card-meta">
-                    <span>{formatBytes(result.size)}</span>
-                    <span>{formatPublished(result.publishDate)}</span>
-                  </div>
-                  <div className="torrent-card-source" title={result.infoHash || result.indexer || ''}>
-                    {result.indexer || 'Unknown indexer'}
-                    {result.infoHash ? ' · ' + result.infoHash.slice(0, 10) + '…' : ''}
-                  </div>
                   <div className="torrent-card-actions">
+                    <span className="torrent-card-size">{formatBytes(result.size)}</span>
                     <div className="flex items-center gap-2 shrink-0">
                     {(() => {
                       const source = result.magnetUrl || result.downloadUrl || result.sourceUrl;
