@@ -79,7 +79,7 @@ export const TorrentSearchPanel: React.FC<TorrentSearchPanelProps> = ({ onPrepar
       .trim();
     const yearMatch = cleaned.match(/\b(?:19|20)\\d{2}\\b/);
     let movieTitle = yearMatch ? cleaned.slice(0, yearMatch.index).trim() : cleaned;
-    movieTitle = movieTitle.replace(/\\[[^\\]]*\\]|\\([^)]*\\)/g, ' ').replace(/\s+/g, ' ').trim();
+    movieTitle = movieTitle.replace(/\\[[^\\]]*\\]|\\]\|\([^)]*\\)/g, ' ').replace(/\s+/g, ' ').trim();
     const params = new URLSearchParams({
       title: movieTitle,
       year: yearMatch?.[0] || '',
