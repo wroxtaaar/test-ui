@@ -2956,7 +2956,7 @@ async def _resolve_movie_poster(raw_title: str) -> str | None:
         try:
             query = quote(f"{lookup_title} {year}".strip())
             response = await client.get(
-                f"https://v3.sg.media-imdb.com/suggestion/titles/x/{query}.json?includeVideos=0",
+                f"https://v3.sg.media-imdb.com/suggestion/x/{query}.json?includeVideos=0",
                 headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"},
             )
             if response.is_success:
@@ -2992,7 +2992,7 @@ async def _resolve_movie_poster(raw_title: str) -> str | None:
         try:
             response = await client.get(
                 "https://itunes.apple.com/search",
-                params={"term": f"{lookup_title} {year}".strip(), "limit": 50},
+                params={"term": f"{lookup_title} {year}".strip(), "media": "movie", "entity": "movie", "limit": 50, "country": "US"},
                 headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"},
             )
             if response.is_success:
