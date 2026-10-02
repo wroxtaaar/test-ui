@@ -553,26 +553,23 @@ body {
   gap: 4px;
 }
 
-.torrent-card-meta {
-  color: #94a3b8;
-  padding-top: 7px;
-  border-top: 1px solid rgba(51,65,85,.55);
-}
-
-.torrent-card-source {
-  margin-top: 7px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #64748b;
-  font-size: 10px;
-}
-
 .torrent-card-actions {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 10px;
+  min-width: 0;
+}
+
+.torrent-card-size {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .torrent-action-primary,
@@ -642,25 +639,25 @@ body {
 
 @media (min-width: 1024px) {
   .torrent-result-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 14px;
   }
 
   .torrent-card-body {
-    padding: 14px;
+    padding: 11px;
   }
 }
 
 @media (min-width: 1280px) {
   .torrent-result-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 16px;
   }
 }
 
 @media (min-width: 1750px) {
   .torrent-result-grid {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(9, minmax(0, 1fr));
   }
 }
 
@@ -701,11 +698,11 @@ body {
   }
 
   .torrent-card-body {
-    padding: 15px;
+    padding: 11px;
   }
 
   .torrent-card-title {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .torrent-action-primary,
