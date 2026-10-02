@@ -68,6 +68,24 @@ export const TorrentSearchPanel: React.FC<TorrentSearchPanelProps> = ({ onPrepar
   const [prepareWaitOpen, setPrepareWaitOpen] = useState(false);
   const [prepareError, setPrepareError] = useState('');
 
+  // Movie artwork from the previously tested TorrentFlix project.
+  // Presentation-only: existing search, torrent and Seedr behavior is unchanged.
+  const posterUrl = (title: string) => {
+    const cleaned = String(title || '')
+      .replace(/[._]/g, ' ')
+      .replace(/\b(?:720p|1080p|2160p|480p|4k|x264|x265|h264|h265|hevc|bluray|brrip|web-?dl|webrip|hdrip|dvdrip|cam|hdcam)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const yearMatch = cleaned.match(/\b(?:19|20)\d{2}\b/);
+    let movieTitle = yearMatch ? cleaned.slice(0, yearMatch.index).trim() : cleaned;
+    movieTitle = movieTitle.replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+    const params = new URLSearchParams({
+      title: movieTitle,
+      year: yearMatch?.[0] || '',
+    });
+    return API_BASE + '/api/poster?' + params.toString();
+  };
+
   // Metadata is prefetched in small batches so search remains fast while the
   // most likely results are already resolved when the user clicks Add.
   const metadataCacheRef = useRef(new Map<string, {
@@ -550,7 +568,24 @@ export const TorrentSearchPanel: React.FC<TorrentSearchPanelProps> = ({ onPrepar
                 key={result.guid || result.infoHash || (result.title + '-' + index)}
                 className="result-card p-2.5 sm:p-4 hover:bg-slate-900/80 transition"
               >
-                <div className="flex flex-row items-center gap-2 sm:gap-3">
+                <div className="flex flex-row items-center gap-2 sm:gap-4">
+                  <div className="relative w-16 sm:w-20 lg:w-24 xl:w-28 aspect-[2/3] rounded-xl overflow-hidden bg-slate-950 border border-slate-700/70 shrink-0 shadow-lg">
+                    <img
+                      src={posterUrl(result.title)}
+                      alt=""
+                      loading="lazy"
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(event) => {
+                        const img = event.currentTarget;
+                        img.style.display = 'none';
+                        const fallback = img.parentElement?.querySelector('[data-poster-fallback="true"]') as HTMLElement | null;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                    <div data-poster-fallback="true" className="absolute inset-0 hidden items-center justify-center bg-gradient-to-br from-cyan-500/15 to-slate-950 text-cyan-400">
+                      <Film className="w-7 h-7 sm:w-9 sm:h-9 opacity-70" />
+                    </div>
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start gap-2">
                       <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-cyan-500/10 border border-cyan-500/20 shrink-0">
