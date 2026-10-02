@@ -3026,11 +3026,33 @@ async def api_search(q: str = Query(..., min_length=1), limit: int = Query(50, g
 
 @app.get("/api/poster")
 async def api_poster(title: str = Query(..., min_length=1), year: str = Query("")):
+    """Return poster bytes through our API instead of redirecting to an external CDN."""
     raw_title = f"{title} {year}".strip()
     poster = await _resolve_movie_poster(raw_title)
     if not poster:
         return Response(status_code=204)
-    return RedirectResponse(poster, status_code=307)
+
+    try:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            image = await client.get(
+                poster,
+                headers={
+                    "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                    "User-Agent": "Mozilla/5.0 TorrentStudio/1.0",
+                },
+            )
+        if not image.is_success or not image.content:
+            return Response(status_code=204)
+        media_type = image.headers.get("content-type", "image/jpeg").split(";")[0]
+        if not media_type.startswith("image/"):
+            media_type = "image/jpeg"
+        return Response(
+            content=image.content,
+            media_type=media_type,
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+    except httpx.HTTPError:
+        return Response(status_code=204)
 
 @app.get("/api/health")
 async def api_health():
