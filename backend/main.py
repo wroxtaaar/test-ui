@@ -2939,32 +2939,6 @@ async def _resolve_movie_poster(raw_title: str) -> str | None:
     if key in _poster_cache:
         return _poster_cache[key]
 
-    # Same keyless YTS artwork source used by the tested movie app.
-    # YTS is particularly useful here because it returns poster_path directly
-    # without requiring a TMDB key.
-    hosts = ("yts.mx", "yts.am", "yts.lt", "yts.rs")
-    async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
-        for host in hosts:
-            try:
-                response = await client.get(
-                    f"https://{host}/api/v2/list_movies.json",
-                    params={"query_term": title, "limit": 20},
-                    headers={"Accept": "application/json"},
-                )
-                if not response.is_success:
-                    continue
-                data = response.json()
-                wanted = _normalize_poster_title(title)
-                for movie in (data.get("data", {}).get("movies") or []):
-                    candidate = _normalize_poster_title(movie.get("title_long") or movie.get("title") or "")
-                    movie_year = str(movie.get("year") or "")
-                    poster = movie.get("medium_cover_image") or movie.get("large_cover_image")
-                    if poster and candidate == wanted and (not year or movie_year == year):
-                        _poster_cache[key] = str(poster)
-                        return str(poster)
-            except (httpx.HTTPError, ValueError, TypeError):
-                continue
-
         # IMDb fallback, matching the previous movie project's strict title/year
         # matching rather than accepting an unrelated fuzzy poster.
         try:
@@ -3016,6 +2990,33 @@ async def _resolve_movie_poster(raw_title: str) -> str | None:
                         return url
         except (httpx.HTTPError, ValueError, TypeError):
             pass
+
+
+    # Same keyless YTS artwork source used by the tested movie app.
+    # YTS is particularly useful here because it returns poster_path directly
+    # without requiring a TMDB key.
+    hosts = ("yts.mx", "yts.am", "yts.lt", "yts.rs")
+    async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
+        for host in hosts:
+            try:
+                response = await client.get(
+                    f"https://{host}/api/v2/list_movies.json",
+                    params={"query_term": title, "limit": 20},
+                    headers={"Accept": "application/json"},
+                )
+                if not response.is_success:
+                    continue
+                data = response.json()
+                wanted = _normalize_poster_title(title)
+                for movie in (data.get("data", {}).get("movies") or []):
+                    candidate = _normalize_poster_title(movie.get("title_long") or movie.get("title") or "")
+                    movie_year = str(movie.get("year") or "")
+                    poster = movie.get("medium_cover_image") or movie.get("large_cover_image")
+                    if poster and candidate == wanted and (not year or movie_year == year):
+                        _poster_cache[key] = str(poster)
+                        return str(poster)
+            except (httpx.HTTPError, ValueError, TypeError):
+                continue
 
     _poster_cache[key] = None
     return None
