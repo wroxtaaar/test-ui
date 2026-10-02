@@ -2935,86 +2935,121 @@ async def _resolve_movie_poster(raw_title: str) -> str | None:
     title, year = _parse_poster_title(raw_title)
     if not title:
         return None
-    key = f"{_normalize_poster_title(title)}|{year}"
+
+    # Strip episode/release suffixes that commonly appear on TV/search results.
+    lookup_title = re.sub(r"\\bS\\d{1,2}E\\d{1,4}(?:[-_.]E?\\d{1,4})?\\b", " ", title, flags=re.I)
+    lookup_title = re.sub(r"\\b(?:S\\d{1,2}|Season\\s+\\d+)\\b", " ", lookup_title, flags=re.I)
+    lookup_title = re.sub(r"\\b(?:E\\d{1,4}|Episode\\s+\\d+)\\b", " ", lookup_title, flags=re.I)
+    lookup_title = re.sub(r"\\s+", " ", lookup_title).strip()
+    if not lookup_title:
+        lookup_title = title
+
+    key = f"{_normalize_poster_title(lookup_title)}|{year}"
     if key in _poster_cache:
         return _poster_cache[key]
 
-        # IMDb fallback, matching the previous movie project's strict title/year
-        # matching rather than accepting an unrelated fuzzy poster.
+    wanted = _normalize_poster_title(lookup_title)
+    wanted_original = _normalize_poster_title(title)
+
+    async with httpx.AsyncClient(timeout=6, follow_redirects=True) as client:
+        # IMDb suggestion API: broad coverage and direct poster URLs.
         try:
-            query = quote(f"{title} {year}".strip())
+            query = quote(f"{lookup_title} {year}".strip())
             response = await client.get(
                 f"https://v3.sg.media-imdb.com/suggestion/titles/x/{query}.json?includeVideos=0",
-                headers={"Accept": "application/json"},
+                headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"},
             )
             if response.is_success:
                 data = response.json()
-                wanted = _normalize_poster_title(title)
-                for item in data.get("d") or []:
-                    image = item.get("i") if isinstance(item, dict) else None
-                    candidate = _normalize_poster_title(item.get("l") or "") if isinstance(item, dict) else ""
-                    candidate_year = str(item.get("y") or "") if isinstance(item, dict) else ""
-                    if (
-                        candidate == wanted
-                        and (not year or candidate_year == year)
-                        and isinstance(image, dict)
-                        and image.get("imageUrl")
-                    ):
-                        url = str(image["imageUrl"])
-                        _poster_cache[key] = url
-                        return url
+                candidates = data.get("d") or []
+                # Prefer exact title/year, then exact title, then an exact
+                # normalized match without a year constraint for TV/upcoming titles.
+                passes = (
+                    lambda item: (
+                        _normalize_poster_title(item.get("l") or "") == wanted
+                        and str(item.get("y") or "") == year
+                        and year
+                    ),
+                    lambda item: _normalize_poster_title(item.get("l") or "") == wanted
+                        and (not year or str(item.get("y") or "") == year),
+                    lambda item: _normalize_poster_title(item.get("l") or "") == wanted_original,
+                )
+                for matcher in passes:
+                    for item in candidates:
+                        if not isinstance(item, dict) or not matcher(item):
+                            continue
+                        image = item.get("i")
+                        image_url = image.get("imageUrl") if isinstance(image, dict) else None
+                        if image_url:
+                            url = str(image_url)
+                            _poster_cache[key] = url
+                            return url
         except (httpx.HTTPError, ValueError, TypeError):
             pass
 
-        # Keyless iTunes fallback, useful when YTS/IMDb is unavailable.
+        # iTunes fallback; no API key required and useful for mainstream movies
+        # and TV titles when IMDb suggestions are unavailable.
         try:
             response = await client.get(
                 "https://itunes.apple.com/search",
-                params={"term": f"{title} {year}".strip(), "limit": 25},
-                headers={"Accept": "application/json"},
+                params={"term": f"{lookup_title} {year}".strip(), "limit": 50},
+                headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"},
             )
             if response.is_success:
                 data = response.json()
-                wanted = _normalize_poster_title(title)
+                exact = []
+                relaxed = []
                 for item in data.get("results") or []:
-                    candidate = _normalize_poster_title(item.get("trackName") or item.get("collectionName") or "")
+                    if not isinstance(item, dict):
+                        continue
+                    candidate = _normalize_poster_title(
+                        item.get("trackName")
+                        or item.get("collectionName")
+                        or item.get("trackCensoredName")
+                        or ""
+                    )
                     item_year = str(item.get("releaseDate") or "")[:4]
                     artwork = item.get("artworkUrl100")
-                    if (
-                        candidate == wanted
-                        and (not year or item_year == year)
-                        and artwork
-                    ):
-                        url = str(artwork).replace("100x100bb", "600x600bb")
-                        _poster_cache[key] = url
-                        return url
+                    if not artwork:
+                        continue
+                    row = (candidate, item_year, str(artwork))
+                    if candidate == wanted and (not year or item_year == year):
+                        exact.append(row)
+                    elif candidate == wanted_original:
+                        relaxed.append(row)
+
+                for candidate, item_year, artwork in exact + relaxed:
+                    url = artwork.replace("100x100bb", "600x600bb")
+                    _poster_cache[key] = url
+                    return url
         except (httpx.HTTPError, ValueError, TypeError):
             pass
 
-
-    # Same keyless YTS artwork source used by the tested movie app.
-    # YTS is particularly useful here because it returns poster_path directly
-    # without requiring a TMDB key.
+    # YTS is a useful third source for movie artwork and avoids API keys.
     hosts = ("yts.mx", "yts.am", "yts.lt", "yts.rs")
     async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
         for host in hosts:
             try:
                 response = await client.get(
                     f"https://{host}/api/v2/list_movies.json",
-                    params={"query_term": title, "limit": 20},
-                    headers={"Accept": "application/json"},
+                    params={"query_term": lookup_title, "limit": 20},
+                    headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"},
                 )
                 if not response.is_success:
                     continue
                 data = response.json()
-                wanted = _normalize_poster_title(title)
                 for movie in (data.get("data", {}).get("movies") or []):
-                    candidate = _normalize_poster_title(movie.get("title_long") or movie.get("title") or "")
+                    if not isinstance(movie, dict):
+                        continue
+                    candidate = _normalize_poster_title(
+                        movie.get("title_long") or movie.get("title") or ""
+                    )
                     movie_year = str(movie.get("year") or "")
                     poster = movie.get("medium_cover_image") or movie.get("large_cover_image")
                     if poster and candidate == wanted and (not year or movie_year == year):
-                        _poster_cache[key] = str(poster)
-                        return str(poster)
+                        url = str(poster)
+                        _poster_cache[key] = url
+                        return url
             except (httpx.HTTPError, ValueError, TypeError):
                 continue
 
