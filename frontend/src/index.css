@@ -435,3 +435,287 @@ body {
     min-height: 148px;
   }
 }
+
+/* Poster-grid search results */
+.torrent-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.torrent-poster-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(71, 85, 105, .42);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(15,23,42,.98), rgba(10,15,28,.98));
+  box-shadow: 0 10px 30px rgba(0,0,0,.16);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.torrent-poster-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(34,211,238,.45);
+  box-shadow: 0 18px 42px rgba(0,0,0,.28);
+}
+
+.torrent-poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  background: #020617;
+}
+
+.torrent-poster-image,
+.torrent-poster-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.torrent-poster-image {
+  object-fit: cover;
+  transition: transform 350ms ease;
+}
+
+.torrent-poster-card:hover .torrent-poster-image {
+  transform: scale(1.035);
+}
+
+.torrent-poster-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(34 211 238);
+  background: radial-gradient(circle at 50% 35%, rgba(8,145,178,.2), transparent 48%), #020617;
+}
+
+.torrent-poster-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 9px;
+  background: linear-gradient(180deg, rgba(2,6,23,.62), transparent 28%, transparent 72%, rgba(2,6,23,.35));
+  pointer-events: none;
+}
+
+.torrent-score-badge,
+.torrent-quality-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: rgba(2,6,23,.78);
+  border: 1px solid rgba(71,85,105,.45);
+  backdrop-filter: blur(8px);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.torrent-score-badge { color: #4ade80; }
+.torrent-quality-badge { color: #67e8f9; }
+
+.torrent-card-body {
+  padding: 12px;
+}
+
+.torrent-card-title {
+  min-height: 42px;
+  margin: 0;
+  color: #f8fafc;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 800;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.torrent-card-stats,
+.torrent-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.torrent-card-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.torrent-card-meta {
+  color: #94a3b8;
+  padding-top: 7px;
+  border-top: 1px solid rgba(51,65,85,.55);
+}
+
+.torrent-card-source {
+  margin-top: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.torrent-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.torrent-action-primary,
+.torrent-action-prepare {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  min-height: 38px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  transition: transform 160ms ease, background-color 160ms ease, opacity 160ms ease;
+}
+
+.torrent-action-primary {
+  background: #34d399;
+  color: #022c22;
+}
+
+.torrent-action-primary:hover { background: #6ee7b7; }
+
+.torrent-action-prepare {
+  background: #06b6d4;
+  color: #082f49;
+}
+
+.torrent-action-prepare:hover { background: #22d3ee; }
+
+.torrent-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 10px;
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid rgba(71,85,105,.5);
+}
+
+.torrent-action-icon:hover {
+  background: #334155;
+  color: white;
+}
+
+.torrent-action-cancel {
+  min-height: 38px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  color: #fda4af;
+  background: rgba(244,63,94,.08);
+  border: 1px solid rgba(244,63,94,.22);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+@media (min-width: 640px) {
+  .torrent-result-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .torrent-result-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .torrent-card-body {
+    padding: 14px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .torrent-result-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1750px) {
+  .torrent-result-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .torrent-card-body {
+    padding: 10px;
+  }
+
+  .torrent-card-title {
+    font-size: 13px;
+    min-height: 38px;
+  }
+
+  .torrent-card-actions {
+    gap: 5px;
+  }
+
+  .torrent-action-primary,
+  .torrent-action-prepare {
+    min-height: 40px;
+    padding-inline: 7px;
+  }
+
+  .torrent-action-icon {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .torrent-result-grid {
+    gap: 22px;
+  }
+
+  .torrent-poster-card {
+    border-radius: 18px;
+  }
+
+  .torrent-card-body {
+    padding: 15px;
+  }
+
+  .torrent-card-title {
+    font-size: 15px;
+  }
+
+  .torrent-action-primary,
+  .torrent-action-prepare {
+    min-height: 44px;
+  }
+
+  .torrent-action-icon {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+}
