@@ -573,8 +573,12 @@ export const TorrentSearchPanel: React.FC<TorrentSearchPanelProps> = ({ onPrepar
                   <img
                     src={posterUrl(result.title)}
                     alt=""
-                    loading="lazy"
+                    loading={index < 6 ? "eager" : "lazy"}
                     className="torrent-poster-image"
+                    onLoad={(event) => {
+                      const fallback = event.currentTarget.parentElement?.querySelector('[data-poster-fallback="true"]') as HTMLElement | null;
+                      if (fallback) fallback.style.display = "none";
+                    }}
                     onError={(event) => {
                       const img = event.currentTarget;
                       img.style.display = 'none';
