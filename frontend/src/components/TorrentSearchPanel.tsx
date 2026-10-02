@@ -548,7 +548,7 @@ export const TorrentSearchPanel: React.FC<TorrentSearchPanelProps> = ({ onPrepar
             {sortedResults.map((result, index) => (
               <div
                 key={result.guid || result.infoHash || (result.title + '-' + index)}
-                className="p-2.5 sm:p-4 hover:bg-slate-900/80 transition"
+                className="result-card p-2.5 sm:p-4 hover:bg-slate-900/80 transition"
               >
                 <div className="flex flex-row items-center gap-2 sm:gap-3">
                   <div className="min-w-0 flex-1">
