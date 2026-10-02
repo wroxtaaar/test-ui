@@ -2914,22 +2914,22 @@ async def search_1337x(query: str, limit: int = 50, allow_series_fallback: bool 
 _poster_cache: dict[str, str | None] = {}
 
 def _normalize_poster_title(value: str) -> str:
-    return re.sub(r"\\s+", " ", re.sub(r"[^a-z0-9]+", " ", str(value or "").lower())).strip()
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", str(value or "").lower())).strip()
 
 def _parse_poster_title(raw_title: str) -> tuple[str, str]:
     value = re.sub(r"[._]+", " ", str(raw_title or "")).strip()
-    year_match = re.search(r"\\b((?:19|20)\\d{2})\\b", value)
+    year_match = re.search(r"\b((?:19|20)\d{2})\\b", value)
     year = year_match.group(1) if year_match else ""
     if year_match:
         value = value[:year_match.start()]
-    value = re.sub(r"\\[[^\\]]*\\]|\\([^)]*\\]", " ", value)
+    value = re.sub(r"\[[^\]]*\]|\\([^)]*\]", " ", value)
     value = re.sub(
-        r"\\b(?:720p|1080p|2160p|480p|4k|x264|x265|h264|h265|hevc|bluray|brrip|web-?dl|webrip|hdrip|dvdrip|cam|hdcam)\\b",
+        r"\b(?:720p|1080p|2160p|480p|4k|x264|x265|h264|h265|hevc|bluray|brrip|web-?dl|webrip|hdrip|dvdrip|cam|hdcam)\\b",
         " ",
         value,
         flags=re.I,
     )
-    return re.sub(r"\\s+", " ", value).strip(), year
+    return re.sub(r"\s+", " ", value).strip(), year
 
 async def _resolve_movie_poster(raw_title: str) -> str | None:
     title, year = _parse_poster_title(raw_title)
