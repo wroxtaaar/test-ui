@@ -2992,6 +2992,31 @@ async def _resolve_movie_poster(raw_title: str) -> str | None:
         except (httpx.HTTPError, ValueError, TypeError):
             pass
 
+        # Keyless iTunes fallback, useful when YTS/IMDb is unavailable.
+        try:
+            response = await client.get(
+                "https://itunes.apple.com/search",
+                params={"term": f"{title} {year}".strip(), "limit": 25},
+                headers={"Accept": "application/json"},
+            )
+            if response.is_success:
+                data = response.json()
+                wanted = _normalize_poster_title(title)
+                for item in data.get("results") or []:
+                    candidate = _normalize_poster_title(item.get("trackName") or item.get("collectionName") or "")
+                    item_year = str(item.get("releaseDate") or "")[:4]
+                    artwork = item.get("artworkUrl100")
+                    if (
+                        candidate == wanted
+                        and (not year or item_year == year)
+                        and artwork
+                    ):
+                        url = str(artwork).replace("100x100bb", "600x600bb")
+                        _poster_cache[key] = url
+                        return url
+        except (httpx.HTTPError, ValueError, TypeError):
+            pass
+
     _poster_cache[key] = None
     return None
 
