@@ -2965,15 +2965,15 @@ async def search_1337x(query: str, limit: int = 50, allow_series_fallback: bool 
 
     # If the normal search produces only a small result set, try correcting
     # an obvious movie/TV title typo before paying the cost of the 1337x
-    # direct fallback. The correction lookup runs in parallel with the normal
-    # provider searches, so correct queries do not wait on it.
+    # direct fallback. Correct queries keep the existing fast path because the
+    # correction lookup is only needed when the normal result set is small.
     if allow_query_correction and len(results) < 8:
         try:
             corrected_query = await asyncio.wait_for(
                 _resolve_search_query(query),
                 timeout=SEARCH_CORRECTION_TIMEOUT_SECONDS + 0.15,
             )
-        except (asyncio.TimeoutError, Exception):
+        except Exception:
             corrected_query = query
 
         if corrected_query.strip().lower() != query.strip().lower():
