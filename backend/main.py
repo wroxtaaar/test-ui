@@ -3,6 +3,7 @@ import base64
 import contextvars
 import secrets
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 from collections import deque
 import json
 import hashlib
@@ -79,6 +80,9 @@ TORRENT_METADATA_BACKGROUND_TTL_SECONDS = float(os.getenv("TORRENT_METADATA_BACK
 TORRENT_METADATA_BACKGROUND_RETRY_SECONDS = float(os.getenv("TORRENT_METADATA_BACKGROUND_RETRY_SECONDS", "30"))
 TORRENT_METADATA_JOB_RETENTION_SECONDS = float(os.getenv("TORRENT_METADATA_JOB_RETENTION_SECONDS", str(60 * 60)))
 _search_cache: dict[tuple[str, int], tuple[float, list[dict[str, Any]]]] = {}
+SEARCH_CORRECTION_TIMEOUT_SECONDS = float(os.getenv("SEARCH_CORRECTION_TIMEOUT_SECONDS", "1.0"))
+SEARCH_CORRECTION_CACHE_SECONDS = float(os.getenv("SEARCH_CORRECTION_CACHE_SECONDS", str(60 * 60)))
+_search_correction_cache: dict[str, tuple[float, str]] = {}
 
 # Rolling server-side byte counters for browser media streams. This is more
 # reliable than Resource Timing for long-lived media responses, which browsers
@@ -2054,6 +2058,120 @@ def _normalize_title(value: str) -> str:
     return " ".join(_search_tokens(value))
 
 
+def _search_correction_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
+
+async def _resolve_search_query(query: str) -> str:
+    """Resolve a likely movie/TV typo to a canonical IMDb title.
+
+    This is deliberately conservative: IMDb suggestions are only used to
+    correct a title when the returned title is very close to what the user
+    typed. Search providers still handle the actual torrent lookup.
+    """
+    original = re.sub(r"\s+", " ", str(query or "").strip())
+    title_query, _season, _episode = _media_search_parts(original)
+    if len(title_query) < 3:
+        return original
+
+    lookup_key = _search_correction_key(title_query)
+    if len(lookup_key) < 3:
+        return original
+
+    now = time.monotonic()
+    cached = _search_correction_cache.get(lookup_key)
+    if cached and now - cached[0] < SEARCH_CORRECTION_CACHE_SECONDS:
+        return cached[1]
+
+    year_match = re.search(r"\b(?:19|20)\d{2}\b", original)
+    requested_year = int(year_match.group(0)) if year_match else None
+
+    try:
+        lookup = quote(title_query.lower(), safe="")
+        url = f"https://v3.sg.media-imdb.com/suggestion/titles/x/{lookup}.json"
+        async with httpx.AsyncClient(
+            timeout=SEARCH_CORRECTION_TIMEOUT_SECONDS,
+            follow_redirects=True,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "TorrentStudio/1.0",
+            },
+        ) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            payload = response.json()
+    except (httpx.HTTPError, ValueError, TypeError, asyncio.TimeoutError):
+        _search_correction_cache[lookup_key] = (now, original)
+        return original
+
+    matches = payload.get("d") if isinstance(payload, dict) else None
+    if not isinstance(matches, list):
+        _search_correction_cache[lookup_key] = (now, original)
+        return original
+
+    allowed_qids = {
+        "movie",
+        "tvSeries",
+        "tvMiniSeries",
+        "tvMovie",
+        "tvEpisode",
+        "video",
+        "short",
+    }
+
+    candidates: list[tuple[float, int, str]] = []
+    for item in matches[:12]:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("l") or "").strip()
+        if not title or not str(item.get("id") or "").startswith("tt"):
+            continue
+        qid = str(item.get("qid") or "").strip()
+        if qid and qid not in allowed_qids:
+            continue
+
+        candidate_key = _search_correction_key(title)
+        if not candidate_key or candidate_key == lookup_key:
+            continue
+
+        ratio = SequenceMatcher(None, lookup_key, candidate_key).ratio()
+        if ratio < 0.84:
+            continue
+
+        candidate_year = item.get("y")
+        year_match_bonus = 1 if requested_year and str(candidate_year or "") == str(requested_year) else 0
+        # Prefer a matching year, then the closest title. IMDb's rank is only
+        # a weak tie-breaker because we care more about typo similarity here.
+        rank = int(item.get("rank") or 999999)
+        score = ratio + (0.08 if year_match_bonus else 0.0)
+        candidates.append((score, -rank, title))
+
+    if not candidates:
+        _search_correction_cache[lookup_key] = (now, original)
+        return original
+
+    candidates.sort(reverse=True)
+    corrected_title = candidates[0][2]
+
+    # Replace only the title portion so season/year/quality constraints survive.
+    corrected_query = re.sub(
+        re.escape(title_query),
+        corrected_title,
+        original,
+        count=1,
+        flags=re.I,
+    )
+    corrected_query = re.sub(r"\s+", " ", corrected_query).strip() or original
+
+    if corrected_query.lower() == original.lower():
+        corrected_query = original
+
+    _search_correction_cache[lookup_key] = (now, corrected_query)
+    if corrected_query != original:
+        logger.info("Search typo correction: '%s' -> '%s'", original, corrected_query)
+    return corrected_query
+
+
 X1337_HOSTS = [
     "1337x.to",
     "1337x.st",
@@ -2694,7 +2812,7 @@ async def search_apibay(query: str, limit: int) -> dict[str, Any]:
         return {"source": "apibay", "elapsedMs": round((time.monotonic() - started) * 1000), "results": [], "error": str(exc)}
 
 
-async def search_1337x(query: str, limit: int = 50, allow_series_fallback: bool = True) -> list[dict[str, Any]]:
+async def search_1337x(query: str, limit: int = 50, allow_series_fallback: bool = True, allow_query_correction: bool = True) -> list[dict[str, Any]]:
     """Use the proven fast-search-test provider strategy for production search.
 
     Search providers run in parallel and the endpoint has a hard total deadline.
@@ -2844,6 +2962,53 @@ async def search_1337x(query: str, limit: int = 50, allow_series_fallback: bool 
         reverse=True,
     )
     results = results[:limit]
+
+    # If the normal search produces only a small result set, try correcting
+    # an obvious movie/TV title typo before paying the cost of the 1337x
+    # direct fallback. The correction lookup runs in parallel with the normal
+    # provider searches, so correct queries do not wait on it.
+    if allow_query_correction and len(results) < 8:
+        try:
+            corrected_query = await asyncio.wait_for(
+                _resolve_search_query(query),
+                timeout=SEARCH_CORRECTION_TIMEOUT_SECONDS + 0.15,
+            )
+        except (asyncio.TimeoutError, Exception):
+            corrected_query = query
+
+        if corrected_query.strip().lower() != query.strip().lower():
+            logger.info("Retrying search with corrected query '%s'", corrected_query)
+            corrected_results = await search_1337x(
+                corrected_query,
+                limit=limit,
+                allow_series_fallback=False,
+                allow_query_correction=False,
+            )
+
+            corrected_merged: dict[str, dict[str, Any]] = {}
+            for item in corrected_results + results:
+                if not isinstance(item, dict):
+                    continue
+                key = str(
+                    item.get("infoHash")
+                    or item.get("magnetUrl")
+                    or item.get("title")
+                    or ""
+                ).strip().lower()
+                if key:
+                    corrected_merged.setdefault(key, item)
+
+            results = list(corrected_merged.values())
+            results.sort(
+                key=lambda item: (
+                    int(item.get("seeders") or 0),
+                    int(item.get("leechers") or 0),
+                    int(item.get("size") or 0),
+                ),
+                reverse=True,
+            )
+            results = results[:limit]
+
     # Keep the normal path fast. Only when the primary providers return
     # fewer than 8 usable torrents do we pay the cost of a direct 1337x
     # listing search. The direct fallback fetches only a few listing pages,
